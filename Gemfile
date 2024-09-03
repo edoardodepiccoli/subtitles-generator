@@ -13,3 +13,5 @@ gem "json", "~> 2.7"
 gem "colorize", "~> 1.1"
 
 gem "open3", "~> 0.2.1"
+
+gem "shellwords", "~> 0.2.0"
