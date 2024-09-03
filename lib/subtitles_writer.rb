@@ -1,14 +1,14 @@
 class SubtitlesWriter
 
-  def initialize(subtitles_output_path)
-    @subtitles_output_path = subtitles_output_path
+  def initialize(subtitles_type)
+    @subtitles_type = subtitles_type
   end
 
-  def convert_words_list_to_subtitles(words)
-    output_file = File.new(@subtitles_output_path, "w")
+  def convert_words_list_to_subtitles(words_list, subtitles_output_path)
+    output_file = File.new(subtitles_output_path, "w")
     output_file.truncate(0)
 
-    words.each_with_index do |word_details, index|
+    words_list.each_with_index do |word_details, index|
       start_time = format_time(word_details["start"])
       end_time = format_time(word_details["end"])
       word = word_details["word"]
