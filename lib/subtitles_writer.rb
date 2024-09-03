@@ -1,37 +1,19 @@
 class SubtitlesWriter
 
-  def initialize(subtitles_type)
-    @subtitles_type = subtitles_type
-  end
-
-  def convert_words_list_to_subtitles(words_list, subtitles_output_path)
+  def write_subtitles(segments_list, subtitles_output_path, granularity)
     output_file = File.new(subtitles_output_path, "w")
     output_file.truncate(0)
 
-    words_list.each_with_index do |word_details, index|
-      start_time = format_time(word_details["start"])
-      end_time = format_time(word_details["end"])
-      word = word_details["word"]
+    text_body_selector = granularity == "word" ? "word" : "text"
+
+    segments_list.each_with_index do |segment_details, index|
+      start_time = format_time(segment_details["start"])
+      end_time = format_time(segment_details["end"])
+      segment = segment_details[text_body_selector]
 
       output_file.puts(index)
       output_file.puts("#{start_time} --> #{end_time}")
-      output_file.puts(word)
-      output_file.puts
-    end
-  end
-
-  def convert_sentences_list_to_subtitles(sentences_list, subtitles_output_path)
-    output_file = File.new(subtitles_output_path, "w")
-    output_file.truncate(0)
-
-    sentences_list.each_with_index do |sentence_details, index|
-      start_time = format_time(sentence_details["start"])
-      end_time = format_time(sentence_details["end"])
-      text = sentence_details["text"]
-
-      output_file.puts(index)
-      output_file.puts("#{start_time} --> #{end_time}")
-      output_file.puts(text)
+      output_file.puts(segment)
       output_file.puts
     end
   end
