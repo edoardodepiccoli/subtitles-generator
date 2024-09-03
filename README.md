@@ -1,31 +1,78 @@
-# subtitles-generator
-this is a super basic script that generates subtitles for an mp4 video
+# Subtitles Generator
 
+A simple yet powerful script to generate subtitles for MP4 videos.
 
-## why this script
-my dad is a youtuber and always used capcut to generate subtitles for his videos after editing them in davinci resolve. capcut recently made this a pro membership option, so no good :(
+## Table of Contents
+- [Introduction](#introduction)
+- [Motivation](#motivation)
+- [How It Works](#how-it-works)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Planned Features](#planned-features)
+- [Contributing](#contributing)
+- [License](#license)
 
-I figured out that, since my dad is already using davinci resolve to make videos, I could create a simple script to help him solve this problem. i love solving problems with coding, very useful skill
+## Introduction
+`subtitles-generator` is a basic Ruby script designed to generate subtitles for MP4 videos. While the script is currently rudimentary and not user-friendly, it serves as a starting point for more advanced features in the future.
 
-## how it works
-the program is meant to be self contained, the user should know how to install and use ruby, install dependencies, install and use ffmpeg, know where to place the video to subtitle, how to name it and where to find the output track... so it is NOT user friendly at all!
+## Motivation
+The inspiration for this script comes from a real-world problem. My father, a YouTuber, used CapCut to generate subtitles after editing his videos in DaVinci Resolve. However, CapCut recently moved this feature behind a pro membership, which prompted the need for an alternative solution. Given that he already uses DaVinci Resolve, I decided to create a simple script to address this issue. Solving problems through code is something I enjoy, and this script is the result of that passion.
 
-doesnt matter because it is just a simple script i will be using myself and nobody else. of course i plan to add more features tho:
+## How It Works
+This script is designed to be self-contained but requires some technical knowledge to use effectively:
+- Basic understanding of Ruby, including how to install and run scripts.
+- Familiarity with installing dependencies and using `ffmpeg`.
+- Knowledge of where to place the video file for subtitle generation and where to find the output.
 
-## features to add
-- first of all, implement some sort of error handling
-- let user choose source video and subtitles track destination with a gui
-- make the subtitle writer write subtitles in two different formats: words and sentences (implement another function or some form of block control in the ruby method idk rn)
-- make the program a simple executable that doesnt make the user go crazy
+**Note:** This script is not designed to be user-friendly in its current state, as it was initially created for personal use. However, there are plans to enhance its usability in the future.
 
+## Installation
+To get started with `subtitles-generator`, follow these steps:
 
-after doing all of this
+1. **Clone the Repository:**
+   ```bash
+   git clone https://github.com/edoardodepiccoli/subtitles-generator.git
+   cd subtitles-generator
+   ```
 
-- let the user input his openai api key and save it to a config file
-- maybe add a gui so it would me more marketable
+2. **Install Dependencies:**
+   Ensure that Ruby is installed on your system. You can install the required gems by running:
+   ```bash
+   bundle install
+   ```
 
-and even after this
+3. **Install ffmpeg:**
+   `ffmpeg` is required for processing video files. Install it using your package manager. For example:
+   ```bash
+   # On macOS
+   brew install ffmpeg
 
-- make it into a no bs, cheap, non profit Saas that people can use to happily add subtitles to their videos, paying just the right amount (server operational cost)
+   # On Ubuntu
+   sudo apt-get install ffmpeg
+   ```
 
-these are just some random ideas btw, nothing serious yet
+## Usage
+1. **Prepare Your Video:**
+   - Place the MP4 video file in the designated folder.
+   - Ensure the file is named correctly as per the script’s requirements.
+
+2. **Run the Script:**
+   ```bash
+   ruby main.rb
+   ```
+
+3. **Find Your Subtitles:**
+   - The generated subtitles track will be saved in the specified output directory.
+
+## Planned Features
+While the script is functional, I have several enhancements in mind to improve its usability and functionality:
+
+- **Error Handling:** Implement robust error handling to manage unexpected issues.
+- **User Interface:** Create a GUI to allow users to select the source video and subtitle destination easily.
+- **Subtitle Formats:** Enable the script to generate subtitles in both word-by-word and sentence-by-sentence formats.
+- **Executable Version:** Package the script as a standalone executable to simplify the user experience.
+- **OpenAI Integration:** Allow users to input their OpenAI API key and save it to a configuration file.
+- **Commercialization:** Potentially evolve the script into a no-frills, affordable, non-profit SaaS for generating subtitles.
+
+## Contributing
+Contributions are welcome! If you have suggestions for improvements or new features, feel free to fork the repository and submit a pull request. Please ensure that your changes are well-documented and tested.
