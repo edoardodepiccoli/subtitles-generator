@@ -14,15 +14,14 @@ class Transcriber
           model: "whisper-1",
           file: File.open(@audio_file_path, "rb"),
           response_format: "verbose_json",
-          "timestamp_granularities[]": granularity == "word" ? "word" : "segment"
+          timestamp_granularities: ["word", "segment"]
       })
 
     cache = File.new('cache.json', 'w')
     cache.truncate(0)
     cache.puts(JSON.dump(response))
 
-    segments = response["segments"]
-    segments
+    response
   end
 
 end
