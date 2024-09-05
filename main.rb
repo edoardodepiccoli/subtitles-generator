@@ -9,6 +9,7 @@ Dotenv.load
 api_key = ENV["API_KEY"]
 
 system("clear")
+puts("this is a fetch test")
 puts("copy and paste the video to subtitle path and then press enter")
 video_path = gets.chomp
 puts("do you want to subtitle by word or by sentence (word/sentence)")
