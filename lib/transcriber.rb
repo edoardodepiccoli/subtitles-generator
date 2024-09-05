@@ -1,3 +1,5 @@
+require "openai"
+
 class Transcriber
 
   def initialize(api_key, audio_file_path)
@@ -6,46 +8,20 @@ class Transcriber
   end
 
   def get_transcription(granularity)
+    client = OpenAI::Client.new( access_token: @api_key, log_errors: true)
+    response = client.audio.transcribe(
+      parameters: {
+          model: "whisper-1",
+          file: File.open(@audio_file_path, "rb"),
+          response_format: "verbose_json",
+          "timestamp_granularities[]": granularity == "word" ? "word" : "segment"
+      })
+
     cache = File.new('cache.json', 'w')
     cache.truncate(0)
+    cache.puts(JSON.dump(response))
 
-    if granularity == "sentence"
-      response = HTTParty.post(
-        "https://api.openai.com/v1/audio/transcriptions",
-        headers: {
-          "Authorization" => "Bearer #{@api_key}"
-        },
-        body: {
-          file: File.new(@audio_file_path),
-          model: "whisper-1",
-          response_format: "verbose_json"
-        }
-      )    
-    elsif granularity == "word"
-      response = HTTParty.post(
-        "https://api.openai.com/v1/audio/transcriptions",
-        headers: {
-          "Authorization" => "Bearer #{@api_key}"
-        },
-        body: {
-          file: File.new(@audio_file_path),
-          model: "whisper-1",
-          response_format: "verbose_json",
-          "timestamp_granularities[]": "word"
-        }
-      )
-    end
-
-    if response.code != 200
-      puts "Error: #{response.body}"
-      exit
-    end
-
-    cache.puts(response)
-
-    json_response = JSON.parse(response.body)
-    segments = json_response["segments"]
-
+    segments = response["segments"]
     segments
   end
 

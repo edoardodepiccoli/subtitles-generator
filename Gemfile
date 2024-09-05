@@ -15,3 +15,5 @@ gem "colorize", "~> 1.1"
 gem "open3", "~> 0.2.1"
 
 gem "shellwords", "~> 0.2.0"
+
+gem "ruby-openai"
