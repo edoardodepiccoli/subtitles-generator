@@ -10,7 +10,6 @@ A simple yet powerful script to generate subtitles for MP4 videos.
 - [Usage](#usage)
 - [Planned Features](#planned-features)
 - [Contributing](#contributing)
-- [License](#license)
 
 ## Introduction
 `subtitles-generator` is a basic Ruby script designed to generate subtitles for MP4 videos. While the script is currently rudimentary and not user-friendly, it serves as a starting point for more advanced features in the future.
