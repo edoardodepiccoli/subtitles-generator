@@ -1,5 +1,6 @@
-import json
 import os
+from datetime import timedelta
+
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -7,58 +8,52 @@ load_dotenv()
 API_KEY = os.getenv("API_KEY")
 client = OpenAI(api_key=API_KEY)
 
-def sanitize_path(path):
+def create_unix_path(path):
     return path.replace(" ", "\\ ")
 
-def get_output_audio_path(source_video_path):
-    source_video_name = os.path.basename(source_video_path)
-    source_video_dir = os.path.dirname(source_video_path)
 
-    output_audio_name = source_video_name.split(".")[0] + ".mp3"
-    output_audio_path = os.path.join(source_video_dir, output_audio_name)
-
-    return output_audio_path
-
-def get_output_subtitles_path(source_video_path, granularity):
-    source_video_name = os.path.basename(source_video_path)
-    source_video_dir = os.path.dirname(source_video_path)
-
-    output_subtitles_name = source_video_name.split(".")[0] + granularity + ".srt"
-    output_subtitles_path = os.path.join(source_video_dir, output_subtitles_name)
-
-    return output_subtitles_path
-
-def convert_video(source_video_path):
-    output_audio_path = get_output_audio_path(source_video_path)
-
-    os.system(f'ffmpeg -iy {sanitize_path(source_video_path)} {sanitize_path(output_audio_path)}')
-
-def print_success_message(message):
-    print(f'{'\033[92m'}{message}{'\033[0m'}')
+def change_path_extension(full_path, extension):
+    video_dir = os.path.dirname(full_path)
+    video_name = os.path.basename(full_path)
+    return os.path.join(video_dir, f"{video_name.split(".")[0]}.{extension}")
 
 
-source_video_path = '/Users/edoardo/Downloads/cartella di prova/video di prova.mp4'
-convert_video(source_video_path)
+def convert_video(full_path, extension):
+    new_path = change_path_extension(full_path, extension)
+    os.system(f"ffmpeg -i {create_unix_path(full_path)} -y {create_unix_path(new_path)}")
+    return new_path
 
-print_success_message("Video convertito con successo!")
 
-print("Sto trascrivendo...")
-source_audio_path = get_output_audio_path(source_video_path)
+def get_transcription_object(audio_path):
+    return client.audio.transcriptions.create(
+        model="whisper-1",
+        file=open(audio_path, "rb"),
+        response_format="verbose_json",
+        timestamp_granularities=["word"]
+    )
 
-audio_file = open(source_audio_path, "rb")
-transcript = client.audio.transcriptions.create(
-    model="whisper-1",
-    file=audio_file,
-    response_format="verbose_json",
-    timestamp_granularities=["word", "segment"]
-)
-transcript_json = json.dumps(transcript.to_dict())
+def format_time(seconds):
+    td = timedelta(seconds=seconds)
+    hours, remainder = divmod(td.total_seconds(), 3600)
+    minutes, seconds = divmod(remainder, 60)
+    milliseconds = int((seconds % 1) * 1000)
+    return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02},{milliseconds:03}"
 
-print_success_message("Trascrizione ottenuta con successo!")
-print("Scrivo i sottotitoli nel file")
+video_path = input("Inserisci il percorso del video e premi invio: ").replace("'", "")
+audio_path = convert_video(video_path, "mp3")
 
-words_subtitles_path = get_output_subtitles_path(source_video_path, "-words")
-with open(words_subtitles_path, "w") as words_subtitles_file:
-    words_subtitles_file.write(transcript_json)
+os.system("clear")
+print("Sto ottenendo la trascrizione...")
 
-print_success_message("Scritto i sottotitoli con successo!")
+transcription_object = get_transcription_object(audio_path)
+srt_file = open(change_path_extension(video_path, "srt"), "w")
+
+print("Scrivo su file srt...")
+i = 1
+for word_object in transcription_object.words:
+    srt_string = f"{i}\n{format_time(word_object.start)} --> {format_time(word_object.end)}\n{word_object.word}\n\n"
+    srt_file.write(srt_string)
+    i += 1
+
+srt_file.close()
+print("Completato!")
