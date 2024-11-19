@@ -1,6 +1,5 @@
 import os
 from datetime import timedelta
-
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -10,7 +9,6 @@ client = OpenAI(api_key=API_KEY)
 
 def create_unix_path(path):
     return path.replace(" ", "\\ ")
-
 
 def change_path_extension(full_path, extension):
     video_dir = os.path.dirname(full_path)
@@ -23,13 +21,12 @@ def convert_video(full_path, extension):
     os.system(f"ffmpeg -i {create_unix_path(full_path)} -y {create_unix_path(new_path)}")
     return new_path
 
-
 def get_transcription_object(audio_path):
     return client.audio.transcriptions.create(
         model="whisper-1",
         file=open(audio_path, "rb"),
         response_format="verbose_json",
-        timestamp_granularities=["word"]
+        timestamp_granularities=["word", "segment"]
     )
 
 def format_time(seconds):
