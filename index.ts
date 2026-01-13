@@ -2,26 +2,13 @@
 
 import fs from "fs";
 import path from "path";
-
 import { Converter } from "./converter";
 import { Logger } from "./logger";
+import { Subtitler } from "./subtitler";
+import { Utils } from "./utils";
 
 function usage(): void {
   Logger.error("Usage: bun run index.ts /absolute/or/relative/path/to/media.(mp4|mp3|wav|...)");
-}
-
-function secondsToSrtTime(seconds: number): string {
-  const msTotal = Math.max(0, Math.round(seconds * 1000));
-  const ms = msTotal % 1000;
-  const totalSeconds = Math.floor(msTotal / 1000);
-  const s = totalSeconds % 60;
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  const m = totalMinutes % 60;
-  const h = Math.floor(totalMinutes / 60);
-
-  const pad = (n: number, width = 2) => n.toString().padStart(width, "0");
-
-  return `${pad(h)}:${pad(m)}:${pad(s)},${pad(ms, 3)}`;
 }
 
 async function main() {
@@ -57,7 +44,6 @@ async function main() {
     tempAudioPath = path.join(dir, `${baseName}.temp.mp3`);
 
     try {
-      Logger.progress(`Converting video to audio: ${path.basename(resolvedPath)}`);
       await Converter.convertVideoToAudio(resolvedPath, tempAudioPath);
       audioPath = tempAudioPath;
     } catch (err) {
@@ -72,6 +58,49 @@ async function main() {
   }
 
   Logger.progress(`Processing file: ${audioPath}`);
+
+  // Get JSON transcriptions
+  const apiKey = Bun.env.OPENAI_API_KEY ?? process.env.OPENAI_API_KEY;
+  const subtitler = new Subtitler(apiKey);
+
+  const longFormTranscription = await subtitler.getLongFormTranscription(audioPath);
+  const wordLevelTranscription = await subtitler.getWordLevelTranscription(audioPath);
+
+  // Process JSON into formats
+  const baseName = path.basename(resolvedPath, path.extname(resolvedPath));
+  const outputDir = path.dirname(resolvedPath);
+
+  // Extract transcript text
+  const transcriptText = Utils.extractTranscriptText(longFormTranscription);
+
+  // Build SRT files
+  const words = Utils.collectWordsFromTranscription(wordLevelTranscription);
+  const wordLevelSrt = Utils.buildWordLevelSrt(words);
+  const sentenceLevelSrt = Utils.buildSentenceLevelSrt(words);
+  const longFormSrt = Utils.buildLongFormSrtFromDiarized(longFormTranscription);
+
+  // Write files
+  const txtFilePath = path.join(outputDir, `${baseName}.txt`);
+  const longFormSrtPath = path.join(outputDir, `${baseName}.long-form.srt`);
+  const shortFormSrtPath = path.join(outputDir, `${baseName}.short-form.srt`);
+
+  await fs.promises.writeFile(txtFilePath, transcriptText, "utf8");
+  await fs.promises.writeFile(longFormSrtPath, longFormSrt, "utf8");
+  await fs.promises.writeFile(shortFormSrtPath, wordLevelSrt, "utf8");
+
+  Logger.success("Files written:");
+  Logger.success(`  Transcript TXT:     ${txtFilePath}`);
+  Logger.success(`  Long-form SRT:      ${longFormSrtPath}`);
+  Logger.success(`  Short-form SRT:     ${shortFormSrtPath}`);
+
+  // Clean up temporary audio file
+  if (tempAudioPath && fs.existsSync(tempAudioPath)) {
+    try {
+      await fs.promises.unlink(tempAudioPath);
+    } catch (err) {
+      Logger.progress(`Warning: Could not delete temporary file: ${tempAudioPath}`);
+    }
+  }
 }
 
 main().catch((err) => {
