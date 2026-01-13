@@ -39,9 +39,20 @@ async function main() {
   let tempAudioPath: string | null = null;
 
   if (Converter.isVideoFile(resolvedPath)) {
-    const dir = path.dirname(resolvedPath);
+    // Get repo root directory (where index.ts is located)
+    const repoRoot = import.meta.dir;
+    const tempDir = path.join(repoRoot, "temp");
+
+    // Create temp directory if it doesn't exist
+    if (!fs.existsSync(tempDir)) {
+      await fs.promises.mkdir(tempDir, { recursive: true });
+    }
+
+    // Generate unique filename for temp MP3
     const baseName = path.basename(resolvedPath, path.extname(resolvedPath));
-    tempAudioPath = path.join(dir, `${baseName}.temp.mp3`);
+    const timestamp = Date.now();
+    const tempFileName = `${baseName}-${timestamp}.mp3`;
+    tempAudioPath = path.join(tempDir, tempFileName);
 
     try {
       await Converter.convertVideoToAudio(resolvedPath, tempAudioPath);
