@@ -39,16 +39,13 @@ async function main() {
   let tempAudioPath: string | null = null;
 
   if (Converter.isVideoFile(resolvedPath)) {
-    // Get repo root directory (where index.ts is located)
     const repoRoot = import.meta.dir;
     const tempDir = path.join(repoRoot, "temp");
 
-    // Create temp directory if it doesn't exist
     if (!fs.existsSync(tempDir)) {
       await fs.promises.mkdir(tempDir, { recursive: true });
     }
 
-    // Generate unique filename for temp MP3
     const baseName = path.basename(resolvedPath, path.extname(resolvedPath));
     const timestamp = Date.now();
     const tempFileName = `${baseName}-${timestamp}.mp3`;
@@ -70,45 +67,27 @@ async function main() {
 
   Logger.progress(`Processing file: ${audioPath}`);
 
-  // Get JSON transcriptions
   const apiKey = Bun.env.OPENAI_API_KEY ?? process.env.OPENAI_API_KEY;
   const subtitler = new Subtitler(apiKey);
+  const transcription = await subtitler.getTranscription(audioPath);
 
-  const longFormTranscription = await subtitler.getLongFormTranscription(audioPath);
-  const wordLevelTranscription = await subtitler.getWordLevelTranscription(audioPath);
-
-  // Process JSON into formats
   const baseName = path.basename(resolvedPath, path.extname(resolvedPath));
   const outputDir = path.dirname(resolvedPath);
 
-  // Extract transcript text
-  const transcriptText = Utils.extractTranscriptText(longFormTranscription);
+  const words = Utils.collectWords(transcription);
+  const wordsSrt = Utils.buildWordsSrt(words);
+  const segmentsSrt = Utils.buildSegmentsSrt(transcription);
 
-  // Build SRT files
-  const words = Utils.collectWordsFromTranscription(wordLevelTranscription);
-  const wordLevelSrt = Utils.buildWordLevelSrt(words);
-  const sentenceLevelSrt = Utils.buildSentenceLevelSrt(words);
-  const longFormSrt = Utils.buildLongFormSrtFromDiarized(longFormTranscription);
-  const multiSpeakerSrt = Utils.buildMultiSpeakerSrtFromDiarized(longFormTranscription);
+  const wordsSrtPath = path.join(outputDir, `${baseName}.words.srt`);
+  const segmentsSrtPath = path.join(outputDir, `${baseName}.segments.srt`);
 
-  // Write files
-  const txtFilePath = path.join(outputDir, `${baseName}.txt`);
-  const longFormSrtPath = path.join(outputDir, `${baseName}.long-form.srt`);
-  const shortFormSrtPath = path.join(outputDir, `${baseName}.short-form.srt`);
-  const multiSpeakerSrtPath = path.join(outputDir, `${baseName}.multi-speaker.srt`);
-
-  await fs.promises.writeFile(txtFilePath, transcriptText, "utf8");
-  await fs.promises.writeFile(longFormSrtPath, longFormSrt, "utf8");
-  await fs.promises.writeFile(shortFormSrtPath, wordLevelSrt, "utf8");
-  await fs.promises.writeFile(multiSpeakerSrtPath, multiSpeakerSrt, "utf8");
+  await fs.promises.writeFile(wordsSrtPath, wordsSrt, "utf8");
+  await fs.promises.writeFile(segmentsSrtPath, segmentsSrt, "utf8");
 
   Logger.success("Files written:");
-  Logger.success(`  Transcript TXT:        ${txtFilePath}`);
-  Logger.success(`  Long-form SRT:         ${longFormSrtPath}`);
-  Logger.success(`  Short-form SRT:        ${shortFormSrtPath}`);
-  Logger.success(`  Multi-speaker SRT:     ${multiSpeakerSrtPath}`);
+  Logger.success(`  Words SRT:     ${wordsSrtPath}`);
+  Logger.success(`  Segments SRT:  ${segmentsSrtPath}`);
 
-  // Clean up temporary audio file
   if (tempAudioPath && fs.existsSync(tempAudioPath)) {
     try {
       await fs.promises.unlink(tempAudioPath);

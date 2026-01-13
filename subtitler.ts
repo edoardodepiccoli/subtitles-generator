@@ -11,35 +11,17 @@ export class Subtitler {
     this.openai = new OpenAI({ apiKey });
   }
 
-  async getLongFormTranscription(
-    filePath: string
-  ): Promise<any> {
-    Logger.progress("Creating transcription for txt transcript and long-form srt...");
-    
-    const transcription = await this.openai.audio.transcriptions.create({
-      file: Bun.file(filePath),
-      model: "gpt-4o-transcribe-diarize",
-      response_format: "diarized_json",
-      chunking_strategy: "auto"
-    });
-
-    Logger.progress("Long-form transcription created");
-    return transcription;
-  }
-
-  async getWordLevelTranscription(
-    filePath: string
-  ): Promise<any> {
-    Logger.progress("Creating transcription for word-level srt...");
+  async getTranscription(filePath: string): Promise<any> {
+    Logger.progress("Creating whisper-1 transcription...");
     
     const transcription = await this.openai.audio.transcriptions.create({
       file: Bun.file(filePath),
       model: "whisper-1",
       response_format: "verbose_json",
-      timestamp_granularities: ["word"],
+      timestamp_granularities: ["word", "segment"],
     });
 
-    Logger.progress("Word-level transcription created");
+    Logger.progress("Transcription created");
     return transcription;
   }
 }
