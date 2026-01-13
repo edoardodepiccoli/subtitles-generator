@@ -192,4 +192,85 @@ export class Utils {
 
     return lines.join("\n");
   }
+
+  static buildMultiSpeakerSrtFromDiarized(
+    diarizedTranscription: any
+  ): string {
+    // Handle diarized_json format with multi-speaker support and overlapping segments
+    if (!diarizedTranscription.segments || diarizedTranscription.segments.length === 0) {
+      return "";
+    }
+
+    // Sort segments by start time
+    const segments = [...diarizedTranscription.segments].sort(
+      (a: any, b: any) => a.start - b.start
+    );
+
+    // Group overlapping segments
+    const groups: any[][] = [];
+    let currentGroup: any[] = [];
+    let currentEnd = 0;
+
+    for (const seg of segments) {
+      const start = seg.start;
+      const end = seg.end;
+      const text = this.sanitizeText(seg.text || "");
+      if (!text) continue;
+
+      // Check if this segment overlaps with the current group
+      if (start < currentEnd && currentGroup.length > 0) {
+        // Overlapping - add to current group
+        currentGroup.push(seg);
+        // Extend the group's end time if needed
+        currentEnd = Math.max(currentEnd, end);
+      } else {
+        // Not overlapping - start a new group
+        if (currentGroup.length > 0) {
+          groups.push(currentGroup);
+        }
+        currentGroup = [seg];
+        currentEnd = end;
+      }
+    }
+
+    // Don't forget the last group
+    if (currentGroup.length > 0) {
+      groups.push(currentGroup);
+    }
+
+    // Build SRT from groups
+    const lines: string[] = [];
+    let cueIndex = 1;
+
+    for (const group of groups) {
+      // Find the overall start and end times for this group
+      const groupStart = Math.min(...group.map((seg: any) => seg.start));
+      const groupEnd = Math.max(...group.map((seg: any) => seg.end));
+
+      // Build the text with speaker labels
+      const textParts: string[] = [];
+      for (const seg of group) {
+        const speaker = seg.speaker || "Unknown";
+        const text = this.sanitizeText(seg.text || "");
+        if (text) {
+          textParts.push(`${speaker}: ${text}`);
+        }
+      }
+
+      if (textParts.length > 0) {
+        const start = this.secondsToSrtTime(groupStart);
+        const end = this.secondsToSrtTime(groupEnd);
+        const combinedText = textParts.join("\n");
+
+        lines.push(String(cueIndex));
+        lines.push(`${start} --> ${end}`);
+        lines.push(combinedText);
+        lines.push("");
+
+        cueIndex++;
+      }
+    }
+
+    return lines.join("\n");
+  }
 }

@@ -78,20 +78,24 @@ async function main() {
   const wordLevelSrt = Utils.buildWordLevelSrt(words);
   const sentenceLevelSrt = Utils.buildSentenceLevelSrt(words);
   const longFormSrt = Utils.buildLongFormSrtFromDiarized(longFormTranscription);
+  const multiSpeakerSrt = Utils.buildMultiSpeakerSrtFromDiarized(longFormTranscription);
 
   // Write files
   const txtFilePath = path.join(outputDir, `${baseName}.txt`);
   const longFormSrtPath = path.join(outputDir, `${baseName}.long-form.srt`);
   const shortFormSrtPath = path.join(outputDir, `${baseName}.short-form.srt`);
+  const multiSpeakerSrtPath = path.join(outputDir, `${baseName}.multi-speaker.srt`);
 
   await fs.promises.writeFile(txtFilePath, transcriptText, "utf8");
   await fs.promises.writeFile(longFormSrtPath, longFormSrt, "utf8");
   await fs.promises.writeFile(shortFormSrtPath, wordLevelSrt, "utf8");
+  await fs.promises.writeFile(multiSpeakerSrtPath, multiSpeakerSrt, "utf8");
 
   Logger.success("Files written:");
-  Logger.success(`  Transcript TXT:     ${txtFilePath}`);
-  Logger.success(`  Long-form SRT:      ${longFormSrtPath}`);
-  Logger.success(`  Short-form SRT:     ${shortFormSrtPath}`);
+  Logger.success(`  Transcript TXT:        ${txtFilePath}`);
+  Logger.success(`  Long-form SRT:         ${longFormSrtPath}`);
+  Logger.success(`  Short-form SRT:        ${shortFormSrtPath}`);
+  Logger.success(`  Multi-speaker SRT:     ${multiSpeakerSrtPath}`);
 
   // Clean up temporary audio file
   if (tempAudioPath && fs.existsSync(tempAudioPath)) {
