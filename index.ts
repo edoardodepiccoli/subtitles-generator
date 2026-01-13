@@ -216,12 +216,9 @@ function buildSentenceLevelSrt(words: Word[]): string {
 }
 
 async function transcribeFile(filePath: string): Promise<VerboseTranscription> {
-  // Bun automatically loads .env files, so Bun.env will have the key if it's in .env
   const apiKey = Bun.env.OPENAI_API_KEY ?? process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    throw new Error(
-      "OPENAI_API_KEY is not set. Please create a .env file in the project root with:\nOPENAI_API_KEY=sk-..."
-    );
+    throw new Error("OPENAI_API_KEY environment variable is not set.");
   }
 
   const openai = new OpenAI({ apiKey });
