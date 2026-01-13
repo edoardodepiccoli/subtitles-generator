@@ -11,20 +11,43 @@ type Word = {
   end: number;
 };
 
-type Segment = {
+type DiarizedSegment = {
+  type: string;
+  id: string;
   start: number;
   end: number;
   text: string;
-  words?: Word[];
+  speaker: string;
 };
 
-type VerboseTranscription = {
+type DiarizedTranscription = {
+  task: string;
+  duration: number;
   text: string;
-  language: string;
-  segments?: Segment[];
+  segments: DiarizedSegment[];
+  usage: {
+    type: string;
+    seconds: number;
+  };
 };
 
-const MODEL_NAME = "whisper-1";
+type WhisperWord = {
+  word: string;
+  start: number;
+  end: number;
+};
+
+type WhisperTranscription = {
+  task: string;
+  language: string;
+  duration: number;
+  text: string;
+  words: WhisperWord[];
+  usage: {
+    type: string;
+    seconds: number;
+  };
+};
 
 // ANSI color codes for clean CLI UX
 const colors = {
@@ -135,7 +158,7 @@ function sanitizeText(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-function buildWordLevelSrt(words: Word[]): string {
+function buildWordLevelSrt(words: WhisperWord[]): string {
   const lines: string[] = [];
 
   words.forEach((w, idx) => {
@@ -153,51 +176,7 @@ function buildWordLevelSrt(words: Word[]): string {
   return lines.join("\n");
 }
 
-function splitIntoSentenceSegments(words: Word[]): Segment[] {
-  if (words.length === 0) return [];
-
-  const segments: Segment[] = [];
-  let currentWords: Word[] = [];
-
-  const isSentenceEndPunctuation = (ch: string) => /[.!?]/.test(ch);
-
-  for (const w of words) {
-    currentWords.push(w);
-    const lastChar = w.word.slice(-1);
-    if (isSentenceEndPunctuation(lastChar)) {
-      const text = sanitizeText(currentWords.map((cw) => cw.word).join(" "));
-      if (text) {
-        const first = currentWords[0]!;
-        const last = currentWords[currentWords.length - 1]!;
-        segments.push({
-          start: first.start,
-          end: last.end,
-          text,
-        });
-      }
-      currentWords = [];
-    }
-  }
-
-  // Flush remaining words as last segment
-  if (currentWords.length > 0) {
-    const text = sanitizeText(currentWords.map((cw) => cw.word).join(" "));
-    if (text) {
-      const first = currentWords[0]!;
-      const last = currentWords[currentWords.length - 1]!;
-      segments.push({
-        start: first.start,
-        end: last.end,
-        text,
-      });
-    }
-  }
-
-  return segments;
-}
-
-function buildSentenceLevelSrt(words: Word[]): string {
-  const segments = splitIntoSentenceSegments(words);
+function buildSegmentLevelSrt(segments: DiarizedSegment[]): string {
   const lines: string[] = [];
 
   segments.forEach((seg, idx) => {
@@ -209,13 +188,13 @@ function buildSentenceLevelSrt(words: Word[]): string {
     lines.push(String(idx + 1));
     lines.push(`${start} --> ${end}`);
     lines.push(text);
-    lines.push("");
+    lines.push(""); // blank line between cues
   });
 
   return lines.join("\n");
 }
 
-async function transcribeFile(filePath: string): Promise<VerboseTranscription> {
+async function transcribeWithDiarization(filePath: string): Promise<DiarizedTranscription> {
   const apiKey = Bun.env.OPENAI_API_KEY ?? process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY environment variable is not set.");
@@ -225,51 +204,46 @@ async function transcribeFile(filePath: string): Promise<VerboseTranscription> {
 
   const file = fs.createReadStream(filePath);
 
+  progress("Getting transcription with speaker diarization...");
+
   const transcript = await openai.audio.transcriptions.create({
     file,
-    model: MODEL_NAME,
+    model: "gpt-4o-transcribe-diarize",
+    response_format: "json",
+    chunking_strategy: "auto",
+  } as any);
+
+  // Pretty log the raw JSON response
+  console.log("\n" + colors.yellow + "Raw OpenAI Response (Diarization):" + colors.reset);
+  console.log(JSON.stringify(transcript, null, 2));
+
+  return transcript as unknown as DiarizedTranscription;
+}
+
+async function transcribeWithWhisperWordLevel(filePath: string): Promise<WhisperTranscription> {
+  const apiKey = Bun.env.OPENAI_API_KEY ?? process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY environment variable is not set.");
+  }
+
+  const openai = new OpenAI({ apiKey });
+
+  const file = fs.createReadStream(filePath);
+
+  progress("Getting word-level timestamps with Whisper...");
+
+  const transcript = await openai.audio.transcriptions.create({
+    file,
+    model: "whisper-1",
     response_format: "verbose_json",
     timestamp_granularities: ["word"],
   } as any);
 
-  // The SDK types may not yet fully reflect verbose_json; coerce to our type
-  return transcript as unknown as VerboseTranscription;
-}
+  // Pretty log the raw JSON response
+  console.log("\n" + colors.yellow + "Raw OpenAI Response (Whisper Word-Level):" + colors.reset);
+  console.log(JSON.stringify(transcript, null, 2));
 
-function collectWordsFromTranscription(t: VerboseTranscription): Word[] {
-  const words: Word[] = [];
-
-  if (t.segments && t.segments.length > 0) {
-    for (const seg of t.segments) {
-      if (seg.words && seg.words.length > 0) {
-        for (const w of seg.words) {
-          if (typeof w.start === "number" && typeof w.end === "number") {
-            words.push({
-              word: w.word,
-              start: w.start,
-              end: w.end,
-            });
-          }
-        }
-      }
-    }
-  } else if (t.text) {
-    // Fallback: if no word-level timing, create a single segment (no useful word-level SRT)
-    const text = sanitizeText(t.text);
-    if (text) {
-      const avgWordDuration = 0.5; // rough guess, used only if absolutely needed
-      const splitWords = text.split(/\s+/);
-      let cursor = 0;
-      for (const w of splitWords) {
-        const start = cursor;
-        const end = cursor + avgWordDuration;
-        cursor = end;
-        words.push({ word: w, start, end });
-      }
-    }
-  }
-
-  return words;
+  return transcript as unknown as WhisperTranscription;
 }
 
 async function main() {
@@ -321,12 +295,15 @@ async function main() {
 
   progress(`Transcribing: ${path.basename(resolvedPath)}`);
 
-  let transcription: VerboseTranscription;
-  let words: Word[];
+  let diarizedTranscription: DiarizedTranscription;
+  let whisperTranscription: WhisperTranscription;
 
   try {
-    transcription = await transcribeFile(audioPath);
-    words = collectWordsFromTranscription(transcription);
+    // First, get diarized transcription for segment-level SRT and TXT
+    diarizedTranscription = await transcribeWithDiarization(audioPath);
+
+    // Then, get word-level timestamps from Whisper for word-level SRT
+    whisperTranscription = await transcribeWithWhisperWordLevel(audioPath);
   } finally {
     // Clean up temporary audio file
     if (tempAudioPath && fs.existsSync(tempAudioPath)) {
@@ -339,28 +316,59 @@ async function main() {
     }
   }
 
-  if (words.length === 0) {
-    error("No word-level timing information available in transcription.");
+  // Validate responses
+  const hasSegments = diarizedTranscription.segments && diarizedTranscription.segments.length > 0;
+  const hasWords = whisperTranscription.words && whisperTranscription.words.length > 0;
+
+  if (!diarizedTranscription.text) {
+    error("No text found in diarized transcription.");
+    error("Response structure:");
+    console.error(JSON.stringify(diarizedTranscription, null, 2));
     process.exitCode = 1;
     return;
+  }
+
+  if (!hasSegments) {
+    progress("Warning: No segments found in diarized transcription. Segment-level SRT will be skipped.");
+  }
+
+  if (!hasWords) {
+    progress("Warning: No word-level timing available. Word-level SRT will be empty.");
   }
 
   const dir = path.dirname(resolvedPath);
   const ext = path.extname(resolvedPath);
   const baseName = path.basename(resolvedPath, ext);
 
-  const sentenceSrtPath = path.join(dir, `${baseName}.sentences.srt`);
+  const segmentSrtPath = path.join(dir, `${baseName}.segments.srt`);
   const wordSrtPath = path.join(dir, `${baseName}.words.srt`);
+  const transcriptPath = path.join(dir, `${baseName}.txt`);
 
-  const sentenceSrt = buildSentenceLevelSrt(words);
-  const wordSrt = buildWordLevelSrt(words);
+  // Build SRT files and TXT transcription
+  const segmentSrt = hasSegments ? buildSegmentLevelSrt(diarizedTranscription.segments!) : "";
+  const wordSrt = hasWords ? buildWordLevelSrt(whisperTranscription.words!) : "";
+  const transcriptText = diarizedTranscription.text.trim();
 
-  await fs.promises.writeFile(sentenceSrtPath, sentenceSrt, "utf8");
-  await fs.promises.writeFile(wordSrtPath, wordSrt, "utf8");
+  if (hasSegments) {
+    await fs.promises.writeFile(segmentSrtPath, segmentSrt, "utf8");
+  }
+  if (hasWords) {
+    await fs.promises.writeFile(wordSrtPath, wordSrt, "utf8");
+  }
+  await fs.promises.writeFile(transcriptPath, transcriptText, "utf8");
 
-  success("SRT files written:");
-  success(`  Sentence-level: ${sentenceSrtPath}`);
-  success(`  Word-level:     ${wordSrtPath}`);
+  success("Files written:");
+  if (hasSegments) {
+    success(`  Segment-level SRT: ${segmentSrtPath}`);
+  } else {
+    progress(`  Segment-level SRT: (skipped - no segments available)`);
+  }
+  if (hasWords) {
+    success(`  Word-level SRT:     ${wordSrtPath}`);
+  } else {
+    progress(`  Word-level SRT:     (skipped - no word-level timing available)`);
+  }
+  success(`  Transcript TXT:     ${transcriptPath}`);
 }
 
 main().catch((err) => {
