@@ -12,8 +12,16 @@ bun install
 
 - **Set your OpenAI API key**:
 
+Create a `.env` file in the project root:
+
 ```bash
-export OPENAI_API_KEY=sk-...
+echo "OPENAI_API_KEY=sk-..." > .env
+```
+
+Or manually create `.env` with:
+
+```
+OPENAI_API_KEY=sk-your-api-key-here
 ```
 
 ### Usage
